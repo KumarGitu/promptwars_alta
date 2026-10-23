@@ -1,0 +1,797 @@
+import fs from 'fs';
+import path from 'path';
+import { CivicCase, CommunityResource, ImpactMetrics } from '../types/index.js';
+
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+const CASES_FILE = path.join(DATA_DIR, 'cases.json');
+const RESOURCES_FILE = path.join(DATA_DIR, 'resources.json');
+
+const INITIAL_RESOURCES: CommunityResource[] = [
+  {
+    id: 'res-stormwater-01',
+    name: 'Municipal Public Works — Stormwater & Flood Control',
+    category: 'INFRASTRUCTURE_HAZARD',
+    description: 'Responsible for road clearance, storm drain clearing, culvert maintenance, and emergency road closures.',
+    jurisdiction: 'Metro District 4 & Public Roadways',
+    contact: {
+      phone: '(555) 019-2834',
+      email: 'stormwater.dispatch@metrocivic.gov',
+      portalUrl: 'https://metrocivic.gov/publicworks/report-flood',
+      hours: '24/7 Emergency Dispatch',
+    },
+    servicesProvided: ['Pump deployment', 'Temporary detour barriers', 'Drain unblocking', 'Hydrological inspections'],
+    lastVerifiedDate: '2026-10-15',
+    isOfficialSource: true,
+    isEmergencyOnly: false,
+  },
+  {
+    id: 'res-school-transit-02',
+    name: 'Unified School District — Transportation Safety Office',
+    category: 'CIVIC_SERVICES',
+    description: 'Manages school bus route diversions, student drop-off safety perimeters, and crossing guard alerts.',
+    jurisdiction: 'Oakridge & Lincoln Public School Clusters',
+    contact: {
+      phone: '(555) 019-8821',
+      email: 'safety-dispatch@oakridgeschools.org',
+      portalUrl: 'https://oakridgeschools.org/transport-alerts',
+      hours: 'Mon-Fri 06:00 - 18:00',
+    },
+    servicesProvided: ['Bus rerouting', 'Crossing guard reassignment', 'Parent SMS alerts', 'Safe pedestrian corridors'],
+    lastVerifiedDate: '2026-10-20',
+    isOfficialSource: true,
+    isEmergencyOnly: false,
+  },
+  {
+    id: 'res-noaa-hydrology-03',
+    name: 'National Weather Service — Local Hydrology Bureau',
+    category: 'COMMUNITY_EMERGENCY',
+    description: 'Official stream gauges, rainfall rate radar, flash flood watches, and watershed alert levels.',
+    jurisdiction: 'Regional River Basin Station #4029',
+    contact: {
+      phone: '(555) 012-4411',
+      portalUrl: 'https://water.weather.gov/gauges/station4029',
+      hours: 'Continuous Automated Monitoring',
+    },
+    servicesProvided: ['Crest telemetry', 'Flash flood warning bulletin', 'Precipitation history'],
+    lastVerifiedDate: '2026-10-23',
+    isOfficialSource: true,
+    isEmergencyOnly: false,
+  },
+  {
+    id: 'res-epa-spill-04',
+    name: 'State Environmental Protection Agency — Spill & Hazard Line',
+    category: 'ENVIRONMENTAL',
+    description: 'Enforces hazardous waste cleanup, industrial runoff containment, and illegal waterway dumping investigations.',
+    jurisdiction: 'Statewide Watershed Protection Division',
+    contact: {
+      phone: '1-800-555-0199',
+      email: 'spillresponse@state.deq.gov',
+      portalUrl: 'https://deq.state.gov/hotline',
+      hours: '24/7 Incident Reporting',
+    },
+    servicesProvided: ['Hazardous materials testing', 'Pollution containment', 'Citations and stop-work orders'],
+    lastVerifiedDate: '2026-10-18',
+    isOfficialSource: true,
+    isEmergencyOnly: false,
+  },
+  {
+    id: 'res-senior-advocacy-05',
+    name: 'Department of Aging & Adult Protective Services',
+    category: 'PUBLIC_HEALTH_SAFETY',
+    description: 'Emergency wellness checks, residential facility climate compliance, and vulnerable resident cooling center transport.',
+    jurisdiction: 'County Health & Human Services',
+    contact: {
+      phone: '(555) 018-7722',
+      email: 'eldercare.advocacy@countyhealth.gov',
+      hours: 'Mon-Sun 07:00 - 22:00',
+    },
+    servicesProvided: ['Wellness checks', 'Generator deployment verification', 'Temporary relocation'],
+    lastVerifiedDate: '2026-10-21',
+    isOfficialSource: true,
+    isEmergencyOnly: false,
+  },
+  {
+    id: 'res-emergency-911',
+    name: 'Emergency Dispatch (Life Safety / Fire / Rescue)',
+    category: 'EMERGENCY_DISPATCH',
+    description: 'For active life threats, trapped vehicles in swift water, active fires, or acute medical crises. Do not wait for AI analysis.',
+    jurisdiction: 'All Jurisdictions',
+    contact: {
+      phone: '911',
+      hours: '24/7',
+    },
+    servicesProvided: ['Swift water rescue', 'Fire/Paramedic dispatch', 'Evacuation execution'],
+    lastVerifiedDate: '2026-10-23',
+    isOfficialSource: true,
+    isEmergencyOnly: true,
+  },
+];
+
+const INITIAL_CASES: CivicCase[] = [
+  {
+    id: 'case-flood-001',
+    caseNumber: 'CB-2026-0104',
+    title: 'Severe Street Flooding & Inaccessible Crosswalk Near Oakridge Elementary',
+    summary: 'Standing water of 8-14 inches across Elmwood Avenue adjacent to Oakridge Elementary School, blocking pedestrian crossing and forcing children into oncoming vehicle lanes during morning drop-off.',
+    intent: 'Citizen seeking emergency water pumping, safe school detour routing, and culvert unclogging before afternoon dismissal.',
+    category: 'INFRASTRUCTURE_HAZARD',
+    userReport: 'The road near our school is flooded. Children and pedestrians may be unable to cross safely. Water seems to be backing up from the storm drain at the intersection of Elmwood Ave and 4th Street. Morning buses had to mount the curb.',
+    attachments: [
+      {
+        id: 'att-01',
+        name: 'elmwood_crosswalk_water_depth.jpg',
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=1200&q=80',
+        size: 2450000,
+        summary: 'Visible standing muddy water submerging the painted pedestrian crosswalk and curb ramp.',
+        uploadedAt: '2026-10-23T07:42:00Z',
+      },
+      {
+        id: 'att-02',
+        name: 'parent_association_voice_note.mp3',
+        type: 'AUDIO',
+        url: '/uploads/samples/parent_voice_note.mp3',
+        size: 1140000,
+        summary: '38s voice message: Parent describing children stepping into active road to avoid water; mentions drainage grate is covered with wet autumn leaf debris.',
+        uploadedAt: '2026-10-23T07:45:00Z',
+      },
+      {
+        id: 'att-03',
+        name: 'district_weather_advisory_oct23.pdf',
+        type: 'DOCUMENT',
+        url: '/uploads/samples/district_weather_advisory.pdf',
+        size: 382000,
+        summary: 'County Hydrology Alert: Rainfall of 1.4 inches recorded between 04:00 and 07:00, high runoff risk.',
+        uploadedAt: '2026-10-23T07:50:00Z',
+      },
+    ],
+    location: {
+      rawInput: 'Near Oakridge Elementary School, Elmwood Ave and 4th Street',
+      parsedAddress: '742 Elmwood Ave, Oakridge, Metro District 4',
+      landmark: 'Directly in front of Oakridge Elementary School Main Gate & Crosswalk #3',
+      certainty: 'CONFIRMED',
+      coordinates: { lat: 37.7833, lng: -122.4167 },
+    },
+    incidentTime: {
+      rawInput: 'Morning drop-off today around 7:30 AM, water still rising',
+      reportedTimestamp: '2026-10-23T07:30:00Z',
+      isOngoing: true,
+      certainty: 'CONFIRMED',
+    },
+    urgency: 'HIGH',
+    urgencyReasoning: 'Vulnerable population (elementary school children) directly exposed to moving vehicle traffic due to flooded pedestrian sidewalks; afternoon school dismissal occurs in 4 hours.',
+    extractedFacts: [
+      {
+        id: 'fact-1',
+        fact: 'Standing water is blocking the primary pedestrian crosswalk on Elmwood Avenue.',
+        confidence: 0.98,
+        sourceSegment: 'The road near our school is flooded. Children and pedestrians may be unable to cross safely.',
+        isReportedByCitizen: true,
+      },
+      {
+        id: 'fact-2',
+        fact: 'Location is Elmwood Ave & 4th Street, fronting Oakridge Elementary School.',
+        confidence: 0.95,
+        sourceSegment: 'Water seems to be backing up from the storm drain at the intersection of Elmwood Ave and 4th Street.',
+        isReportedByCitizen: true,
+      },
+      {
+        id: 'fact-3',
+        fact: 'Storm drain grate appears clogged by seasonal organic debris.',
+        confidence: 0.88,
+        sourceSegment: 'parent_association_voice_note.mp3 (00:18)',
+        isReportedByCitizen: true,
+      },
+      {
+        id: 'fact-4',
+        fact: 'School buses were forced to mount the sidewalk curb to pass through.',
+        confidence: 0.91,
+        sourceSegment: 'Morning buses had to mount the curb.',
+        isReportedByCitizen: true,
+      },
+    ],
+    missingInformation: [
+      {
+        id: 'missing-1',
+        item: 'Exact depth of standing water at the deepest center gutter point',
+        importance: 'HELPFUL',
+        reason: 'Determines whether heavy vacuum trucks (Vactor) or portable submersible pumps are needed.',
+        remedySuggestion: 'Request measuring marker photograph from school facility staff or crossing guard.',
+      },
+      {
+        id: 'missing-2',
+        item: 'Whether water has penetrated the school basement or electrical room',
+        importance: 'CRITICAL',
+        reason: 'Prevents electrical hazard risk if water table rises toward foundation conduits.',
+        remedySuggestion: 'School custodian physical perimeter walk-around inspection.',
+      },
+    ],
+    contradictions: [],
+    claims: [
+      {
+        id: 'claim-1',
+        claimText: 'Oakridge basin experienced abnormal localized precipitation (1.4+ inches) within the last 3 hours.',
+        status: 'VERIFIED',
+        sourceTitle: 'National Weather Service Hydrology Bureau — Station #4029',
+        sourceUrl: 'https://water.weather.gov/gauges/station4029',
+        sourceExcerpt: 'Cumulative gauge precipitation recorded 1.42 inches between 04:15 and 07:10 local time. Exceeds drainage threshold for secondary arterials.',
+        sourceDate: '2026-10-23 07:15 AM',
+        confidenceScore: 0.97,
+        uncertaintyExplanation: 'Official precipitation telemetry confirms severe localized runoff conditions matching citizen timing.',
+        verificationEngine: 'NOAA Regional Hydro Telemetry API',
+        lastChecked: '2026-10-23T07:55:00Z',
+      },
+      {
+        id: 'claim-2',
+        claimText: 'Elmwood Ave storm drain was scheduled for preventative cleaning earlier this week.',
+        status: 'PARTIALLY_SUPPORTED',
+        sourceTitle: 'Metro Public Works Weekly Street Cleaning & Catch-Basin Schedule',
+        sourceUrl: 'https://metrocivic.gov/publicworks/schedule/2026-W42',
+        sourceExcerpt: 'Elmwood Ave (400-900 block) listed for catch-basin vacuum service on 2026-10-21; field log status marked "Incomplete due to parked vehicles".',
+        sourceDate: '2026-10-21',
+        confidenceScore: 0.74,
+        uncertaintyExplanation: 'Work order was initiated but municipal logs record that cleaning was obstructed by parked cars, explaining the sudden blockage.',
+        verificationEngine: 'Metro Civic Open Data Work Orders API',
+        lastChecked: '2026-10-23T07:56:00Z',
+      },
+      {
+        id: 'claim-3',
+        claimText: 'Reported water depth exceeds 18 inches and is entering school ground floor.',
+        status: 'UNVERIFIED',
+        sourceTitle: 'CivicBridge Verification Sensor Network',
+        sourceUrl: undefined,
+        sourceExcerpt: undefined,
+        sourceDate: undefined,
+        confidenceScore: 0.20,
+        uncertaintyExplanation: 'Citizen photograph confirms street standing water (approx 8-12 inches), but no official municipal sensor or school report confirms water entering buildings.',
+        verificationEngine: 'Municipal Building Inspection Logs',
+        lastChecked: '2026-10-23T07:57:00Z',
+      },
+      {
+        id: 'claim-4',
+        claimText: 'Road is officially declared closed by Metro Police or Department of Transportation.',
+        status: 'UNVERIFIED',
+        sourceTitle: 'Metro Police Road Closure & Incident Dispatch Feed',
+        sourceUrl: 'https://metrocivic.gov/dot/closures',
+        sourceExcerpt: 'No formal road closure order has been logged for Elmwood Ave as of 07:50 AM.',
+        sourceDate: '2026-10-23 07:50 AM',
+        confidenceScore: 0.15,
+        uncertaintyExplanation: 'Even though street is impassable to small sedans, no official barricades have been authorized by the city yet.',
+        verificationEngine: 'DOT Live Traffic & Closure Feed',
+        lastChecked: '2026-10-23T07:58:00Z',
+      },
+    ],
+    actions: [
+      {
+        id: 'act-1',
+        title: 'Dispatch Emergency Stormwater Jetting & Vacuum Crew',
+        description: 'Submit verified emergency priority work order with photographic evidence to Municipal Public Works Dispatch for Elmwood Ave culvert clearing.',
+        priority: 'P1_IMMEDIATE',
+        reasoning: 'Clearing organic blockage from catch basin grate will immediately restore gravitational drainage before afternoon dismissal.',
+        requiredDocuments: ['Citizen photo showing clogged grate', 'Precise street intersection GPS coordinates'],
+        responsibleEntity: 'Municipal Public Works — Stormwater & Flood Control',
+        deadline: 'Today, 11:30 AM (before school dismissal)',
+        status: 'IN_PROGRESS',
+        outcomeProof: {
+          text: 'Dispatched Ticket #PW-2026-9921 to Metro Stormwater Unit 4; truck en route from depot.',
+          submittedAt: '2026-10-23T08:05:00Z',
+        },
+      },
+      {
+        id: 'act-2',
+        title: 'Activate School Bus Temporary Reroute & Crossing Guard Shielding',
+        description: 'Notify School District Transportation Coordinator to redirect afternoon buses to North Gate (Birch Street) and position crossing guards at safe perimeter.',
+        priority: 'P1_IMMEDIATE',
+        reasoning: 'Prevents elementary children from attempting to walk through or wade across flooded roadway during 14:30 dismissal.',
+        requiredDocuments: ['School boundary safety map', 'Estimated flood recession timeline'],
+        responsibleEntity: 'Oakridge School District Transportation Safety Office',
+        deadline: 'Today, 12:00 PM',
+        status: 'COMPLETED',
+        outcomeProof: {
+          text: 'Principal Martinez sent SMS alert to 480 families directing all pickup to North Birch Gate. 2 crossing guards repositioned.',
+          fileUrl: '/uploads/samples/school_sms_broadcast_confirmation.png',
+          submittedAt: '2026-10-23T08:20:00Z',
+          verifiedOutcome: 'Verified by School District Transportation Logs',
+        },
+      },
+      {
+        id: 'act-3',
+        title: 'Erect Temporary High-Water Warning Signs & Traffic Cones',
+        description: 'Place high-water hazard signage on Elmwood Ave at 3rd and 5th streets to stop passenger vehicles from creating wake waves into pedestrian ramps.',
+        priority: 'P2_HIGH',
+        reasoning: 'Vehicle wake pushes dirty runoff into residential lawns and forces pedestrians off curb.',
+        requiredDocuments: ['City safety barricade requisition'],
+        responsibleEntity: 'Metro Traffic Operations',
+        deadline: 'Today, 10:00 AM',
+        status: 'PENDING',
+      },
+      {
+        id: 'act-4',
+        title: 'Log Post-Storm Catch Basin Maintenance Protocol',
+        description: 'Register Elmwood Ave for inclusion on mandatory Autumn leaf-fall priority sweep rotation to prevent recurrence.',
+        priority: 'P4_FOLLOW_UP',
+        reasoning: 'Identified root cause was uncollected street foliage blocking inlet grates during standard rainfall.',
+        requiredDocuments: ['Municipal seasonal drainage sweep log'],
+        responsibleEntity: 'City Street Maintenance Bureau',
+        deadline: '2026-10-30',
+        status: 'PENDING',
+      },
+    ],
+    recordedOutcomes: [
+      {
+        id: 'out-1',
+        timestamp: '2026-10-23T08:20:00Z',
+        title: 'Student Safety Perimeter Secured',
+        description: 'Oakridge Elementary School rerouted student pedestrian traffic to Birch Street North Gate. No children exposed to Elmwood floodwaters.',
+        recordedBy: 'Vice Principal Sarah Vance, Oakridge Elementary',
+        isVerified: true,
+      },
+      {
+        id: 'out-2',
+        timestamp: '2026-10-23T08:05:00Z',
+        title: 'Priority Work Order Acknowledged',
+        description: 'Metro Public Works confirmed receipt of CivicBridge Case CB-2026-0104 and assigned Vactor Truck 42.',
+        recordedBy: 'Metro Public Works Automated Gateway',
+        isVerified: true,
+      },
+    ],
+    currentStage: 5,
+    overallStatus: 'ACTION_IN_PROGRESS',
+    aiModelUsed: 'gemini-3.8-flash',
+    isDemoMode: false,
+    createdAt: '2026-10-23T07:42:00Z',
+    updatedAt: '2026-10-23T08:25:00Z',
+  },
+  {
+    id: 'case-dump-002',
+    caseNumber: 'CB-2026-0098',
+    title: 'Unpermitted Chemical Drums & Debris Obstructing Mill Creek Drainage Basin',
+    summary: 'Discovery of four rusted 55-gallon steel drums containing unknown oily fluid deposited on the creek bank behind the Southside Community Recreation Trail.',
+    intent: 'Community group seeking containment, chemical sampling, and hazardous waste removal before weekend youth sports events.',
+    category: 'ENVIRONMENTAL',
+    userReport: 'Volunteers found multiple steel chemical drums dumped down the embankment by the footbridge at Mill Creek. One drum looks punctured and is leaking dark blue oily liquid directly towards the water line.',
+    attachments: [
+      {
+        id: 'att-env-01',
+        name: 'leaking_drums_creek_embankment.jpg',
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=1200&q=80',
+        size: 3100000,
+        summary: 'Photo of rusted industrial drums on steep gravel slope with visible soil discoloration.',
+        uploadedAt: '2026-10-22T14:10:00Z',
+      },
+    ],
+    location: {
+      rawInput: 'Mill Creek Trail, 200 yards south of the pedestrian suspension bridge',
+      parsedAddress: 'Mill Creek Greenbelt Trail, Sector B, Southside',
+      certainty: 'CONFIRMED',
+      coordinates: { lat: 37.7712, lng: -122.4285 },
+    },
+    incidentTime: {
+      rawInput: 'Spotted Thursday afternoon at 2 PM',
+      reportedTimestamp: '2026-10-22T14:00:00Z',
+      isOngoing: true,
+      certainty: 'CONFIRMED',
+    },
+    urgency: 'CRITICAL',
+    urgencyReasoning: 'Potential contamination of active municipal tributary that feeds into downstream public fishing and wetlands reserve.',
+    extractedFacts: [
+      {
+        id: 'fact-env-1',
+        fact: 'Four 55-gallon industrial drums located on public trail embankment.',
+        confidence: 0.99,
+        isReportedByCitizen: true,
+      },
+      {
+        id: 'fact-env-2',
+        fact: 'Active fluid leakage observed migrating towards Mill Creek waterway.',
+        confidence: 0.94,
+        isReportedByCitizen: true,
+      },
+    ],
+    missingInformation: [
+      {
+        id: 'missing-env-1',
+        item: 'Manufacturer hazmat identification placards or UN numbering on drum lids',
+        importance: 'CRITICAL',
+        reason: 'Required for first responder HazMat protective equipment protocol.',
+        remedySuggestion: 'Inspect telephoto photo for diamond hazmat labels without approaching fumes.',
+      },
+    ],
+    contradictions: [],
+    claims: [
+      {
+        id: 'claim-env-1',
+        claimText: 'Mill Creek parcel is under jurisdiction of County Parks & Open Space.',
+        status: 'VERIFIED',
+        sourceTitle: 'County GIS Cadastral Land Parcel Registry',
+        sourceUrl: 'https://countygis.gov/parcels/903-22',
+        sourceExcerpt: 'Parcel #903-22 designated County Protected Riparian Corridor.',
+        sourceDate: '2026-10-15',
+        confidenceScore: 0.99,
+        uncertaintyExplanation: 'Cadastral records confirm public municipal ownership.',
+        verificationEngine: 'County GIS Land Records API',
+        lastChecked: '2026-10-22T15:00:00Z',
+      },
+      {
+        id: 'claim-env-2',
+        claimText: 'Contents contain toxic chlorinated solvents or PCBs.',
+        status: 'UNVERIFIED',
+        sourceTitle: 'State Environmental Protection Agency Field Testing',
+        confidenceScore: 0.10,
+        uncertaintyExplanation: 'Fluid is visibly discolored, but chemical composition cannot be established without certified laboratory spectrophotometry.',
+        verificationEngine: 'DEQ Environmental Laboratory Registry',
+        lastChecked: '2026-10-22T15:05:00Z',
+      },
+    ],
+    actions: [
+      {
+        id: 'act-env-1',
+        title: 'Dispatch Emergency HazMat Containment Boom',
+        description: 'Deploy absorbent floating hydrocarbon booms across Mill Creek downstream of runoff site to prevent plume spread.',
+        priority: 'P1_IMMEDIATE',
+        reasoning: 'Fast containment minimizes aquatic ecosystem damage.',
+        requiredDocuments: ['GPS coordinate report', 'Access route map for heavy containment trailer'],
+        responsibleEntity: 'State Environmental Protection Agency — Spill Response',
+        deadline: '2026-10-22 17:00',
+        status: 'COMPLETED',
+        outcomeProof: {
+          text: 'Boom deployed by HazMat Unit 3 at 16:45. Absorbent barriers installed across 30ft creek width.',
+          submittedAt: '2026-10-22T16:50:00Z',
+          verifiedOutcome: 'Verified by State DEQ Incident Log #2026-0988',
+        },
+      },
+      {
+        id: 'act-env-2',
+        title: 'Close Recreational Trailhead Gate #4',
+        description: 'Temporarily padlock trailhead access gate to prevent dog walkers and trail runners from inhaling chemical vapors.',
+        priority: 'P2_HIGH',
+        reasoning: 'Public safety cordon until chemical analysis completes.',
+        requiredDocuments: ['Emergency park closure authorization'],
+        responsibleEntity: 'County Parks Rangers',
+        deadline: '2026-10-22 16:00',
+        status: 'COMPLETED',
+      },
+    ],
+    recordedOutcomes: [
+      {
+        id: 'out-env-1',
+        timestamp: '2026-10-22T16:50:00Z',
+        title: 'Containment Boom Active',
+        description: 'State DEQ Hazmat sealed the runoff perimeter. Drum extraction crane scheduled for Friday morning.',
+        recordedBy: 'Officer T. Reyes, State DEQ Rapid Response',
+        isVerified: true,
+      },
+    ],
+    currentStage: 5,
+    overallStatus: 'ACTION_IN_PROGRESS',
+    aiModelUsed: 'gemini-3.8-flash',
+    isDemoMode: false,
+    createdAt: '2026-10-22T14:15:00Z',
+    updatedAt: '2026-10-22T17:00:00Z',
+  },
+  {
+    id: 'case-heat-003',
+    caseNumber: 'CB-2026-0082',
+    title: 'HVAC Failure & Dangerous Thermal Exposure at Shady Pines Senior Housing',
+    summary: 'Central chiller failure in a 4-story subsidized senior residential building housing 82 vulnerable elderly tenants during an active 102°F National Weather Service heat advisory.',
+    intent: 'Caregiver and resident committee seeking emergency portable chiller units, room temperature checks, and cooling center shuttles.',
+    category: 'PUBLIC_HEALTH_SAFETY',
+    userReport: 'Our main air conditioning system went down yesterday evening. Internal hallways are over 89 degrees right now. Several residents on the 4th floor have mobility issues and cannot leave their apartments.',
+    attachments: [
+      {
+        id: 'att-heat-01',
+        name: 'hallway_digital_thermometer_reading.jpg',
+        type: 'IMAGE',
+        url: 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=1200&q=80',
+        size: 1980000,
+        summary: 'Digital indoor thermostat displaying 89.6°F with 72% relative humidity.',
+        uploadedAt: '2026-10-21T11:20:00Z',
+      },
+    ],
+    location: {
+      rawInput: 'Shady Pines Senior Apartments, 1200 Highland Terrace, 4th floor',
+      parsedAddress: '1200 Highland Terrace, Metro District 2',
+      certainty: 'CONFIRMED',
+      coordinates: { lat: 37.7654, lng: -122.4332 },
+    },
+    incidentTime: {
+      rawInput: 'AC failed yesterday 6 PM, heat intensifying today',
+      reportedTimestamp: '2026-10-21T11:00:00Z',
+      isOngoing: false,
+      certainty: 'CONFIRMED',
+    },
+    urgency: 'HIGH',
+    urgencyReasoning: 'Heat exhaustion risk among geriatric residents with pre-existing cardiopulmonary conditions in unventilated upper floors.',
+    extractedFacts: [
+      {
+        id: 'fact-heat-1',
+        fact: 'Building houses 82 senior residents with central AC system out of commission.',
+        confidence: 0.96,
+        isReportedByCitizen: true,
+      },
+      {
+        id: 'fact-heat-2',
+        fact: 'Recorded interior temperature reached 89.6°F at 11:20 AM.',
+        confidence: 0.98,
+        isReportedByCitizen: true,
+      },
+    ],
+    missingInformation: [
+      {
+        id: 'missing-heat-1',
+        item: 'Building management emergency contingency plan and backup chiller contract',
+        importance: 'CRITICAL',
+        reason: 'Identifies whether landlord has legally mandated emergency cooling supplier.',
+        remedySuggestion: 'Request tenant lease addendum & building emergency contact ledger.',
+      },
+    ],
+    contradictions: [],
+    claims: [
+      {
+        id: 'claim-heat-1',
+        claimText: 'NWS Excessive Heat Warning in effect for Metro District 2 with heat index exceeding 104°F.',
+        status: 'VERIFIED',
+        sourceTitle: 'National Weather Service Excessive Heat Warning Bulletin #W-882',
+        sourceUrl: 'https://weather.gov/alerts/heat/W-882',
+        sourceExcerpt: 'Excessive Heat Warning remains in effect until 8 PM Friday. High temperatures 98 to 104.',
+        sourceDate: '2026-10-21',
+        confidenceScore: 0.99,
+        uncertaintyExplanation: 'Official meteorological advisory active during reported period.',
+        verificationEngine: 'NWS Weather Alerts API',
+        lastChecked: '2026-10-21T11:30:00Z',
+      },
+      {
+        id: 'claim-heat-2',
+        claimText: 'Municipal Housing Code requires multifamily senior residences to maintain indoor temperatures below 78°F.',
+        status: 'VERIFIED',
+        sourceTitle: 'Municipal Housing & Habitability Code § 14-802 (Climate Standards)',
+        sourceUrl: 'https://metrocivic.gov/code/title14/802',
+        sourceExcerpt: 'Owners of assisted living and designated senior residential complexes must maintain habitable temperatures between 68°F and 78°F year-round.',
+        sourceDate: '2026-01-01',
+        confidenceScore: 0.98,
+        uncertaintyExplanation: 'Legally codified habitability mandate directly applicable to this facility.',
+        verificationEngine: 'Metro Civic Municipal Code Database',
+        lastChecked: '2026-10-21T11:32:00Z',
+      },
+    ],
+    actions: [
+      {
+        id: 'act-heat-1',
+        title: 'Emergency Mobile Evaporative Cooler Deployment',
+        description: 'Deliver 12 high-capacity commercial portable AC units to common recreation room and 4th-floor hallways.',
+        priority: 'P1_IMMEDIATE',
+        reasoning: 'Creates an immediate climate-controlled sanctuary for residents while roof chiller is repaired.',
+        requiredDocuments: ['Building loading dock clearance authorization'],
+        responsibleEntity: 'County Emergency Management & Senior Services',
+        deadline: '2026-10-21 14:00',
+        status: 'COMPLETED',
+        outcomeProof: {
+          text: 'County Emergency trailer delivered 14 portable ACs; common room cooled to 72°F.',
+          submittedAt: '2026-10-21T13:45:00Z',
+          verifiedOutcome: 'Verified by County HHS Wellness Inspector',
+        },
+      },
+      {
+        id: 'act-heat-2',
+        title: 'Door-to-Door Health & Hydration Welfare Check',
+        description: 'Conduct room-by-room check on all 82 units with cold water bottles and electrolyte distribution.',
+        priority: 'P2_HIGH',
+        reasoning: 'Ensures no non-ambulatory seniors are succumbing to silent heat distress.',
+        requiredDocuments: ['Tenant roster with special assistance flags'],
+        responsibleEntity: 'Adult Protective Services & Volunteer Fire Brigade',
+        deadline: '2026-10-21 15:00',
+        status: 'COMPLETED',
+      },
+      {
+        id: 'act-heat-3',
+        title: 'Expedite Rooftop Chiller Compressor Replacement',
+        description: 'Verify HVAC contractor procurement and installation of 40-ton rooftop compressor unit.',
+        priority: 'P2_HIGH',
+        reasoning: 'Permanent resolution of building cooling.',
+        requiredDocuments: ['HVAC permit and certified technician sign-off'],
+        responsibleEntity: 'Shady Pines Property Management & Facilities Corp',
+        deadline: '2026-10-22 18:00',
+        status: 'COMPLETED',
+        outcomeProof: {
+          text: 'Compressor replaced and tested. Central air fully restored across all floors at 17:30.',
+          submittedAt: '2026-10-22T17:35:00Z',
+        },
+      },
+    ],
+    recordedOutcomes: [
+      {
+        id: 'out-heat-1',
+        timestamp: '2026-10-22T17:35:00Z',
+        title: 'Full HVAC Restoration & Case Resolved',
+        description: 'Roof chiller repaired; ambient temperature across all floors returned to 71°F. All 82 residents accounted for without medical transport.',
+        recordedBy: 'Inspector Marcus Bell, County Public Health',
+        isVerified: true,
+      },
+    ],
+    currentStage: 5,
+    overallStatus: 'RESOLVED',
+    aiModelUsed: 'gemini-3.8-flash',
+    isDemoMode: false,
+    createdAt: '2026-10-21T11:15:00Z',
+    updatedAt: '2026-10-22T18:00:00Z',
+  },
+];
+
+class StorageService {
+  private cases: CivicCase[] = [];
+  private resources: CommunityResource[] = [];
+  private initialized = false;
+
+  constructor() {
+    this.ensureDataDir();
+    this.loadData();
+  }
+
+  private ensureDataDir() {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  }
+
+  private loadData() {
+    try {
+      if (fs.existsSync(CASES_FILE)) {
+        const raw = fs.readFileSync(CASES_FILE, 'utf-8');
+        this.cases = JSON.parse(raw);
+      } else {
+        this.cases = INITIAL_CASES;
+        this.saveCases();
+      }
+
+      if (fs.existsSync(RESOURCES_FILE)) {
+        const raw = fs.readFileSync(RESOURCES_FILE, 'utf-8');
+        this.resources = JSON.parse(raw);
+      } else {
+        this.resources = INITIAL_RESOURCES;
+        this.saveResources();
+      }
+      this.initialized = true;
+    } catch (err) {
+      console.error('Error loading data from disk, using in-memory fallbacks:', err);
+      this.cases = INITIAL_CASES;
+      this.resources = INITIAL_RESOURCES;
+    }
+  }
+
+  public saveCases() {
+    try {
+      this.ensureDataDir();
+      fs.writeFileSync(CASES_FILE, JSON.stringify(this.cases, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Error saving cases to disk:', err);
+    }
+  }
+
+  public saveResources() {
+    try {
+      this.ensureDataDir();
+      fs.writeFileSync(RESOURCES_FILE, JSON.stringify(this.resources, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Error saving resources to disk:', err);
+    }
+  }
+
+  public getAllCases(): CivicCase[] {
+    return this.cases;
+  }
+
+  public getCaseById(id: string): CivicCase | undefined {
+    return this.cases.find((c) => c.id === id);
+  }
+
+  public createCase(newCase: CivicCase): CivicCase {
+    this.cases.unshift(newCase);
+    this.saveCases();
+    return newCase;
+  }
+
+  public updateCase(id: string, updates: Partial<CivicCase>): CivicCase | undefined {
+    const idx = this.cases.findIndex((c) => c.id === id);
+    if (idx === -1) return undefined;
+
+    this.cases[idx] = {
+      ...this.cases[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    this.saveCases();
+    return this.cases[idx];
+  }
+
+  public deleteCase(id: string): boolean {
+    const initialLen = this.cases.length;
+    this.cases = this.cases.filter((c) => c.id !== id);
+    if (this.cases.length !== initialLen) {
+      this.saveCases();
+      return true;
+    }
+    return false;
+  }
+
+  public getResources(category?: string, search?: string): CommunityResource[] {
+    let result = [...this.resources];
+    if (category && category !== 'ALL') {
+      result = result.filter((r) => r.category === category);
+    }
+    if (search && search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q) ||
+          r.jurisdiction.toLowerCase().includes(q) ||
+          r.servicesProvided.some((s) => s.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }
+
+  public getImpactMetrics(): ImpactMetrics {
+    const totalCases = this.cases.length;
+    const successfullyProcessed = this.cases.filter((c) => c.currentStage >= 2).length;
+    const awaitingVerification = this.cases.filter((c) =>
+      c.claims.some((cl) => cl.status === 'UNVERIFIED' || cl.status === 'UNABLE_TO_VERIFY')
+    ).length;
+
+    let actionPlansCreated = 0;
+    let tasksCompleted = 0;
+    let totalClaimsChecked = 0;
+
+    const verificationBreakdown = {
+      verified: 0,
+      partiallySupported: 0,
+      unverified: 0,
+      conflicting: 0,
+      unableToVerify: 0,
+    };
+
+    const categoryBreakdown: Record<string, number> = {};
+
+    for (const c of this.cases) {
+      if (c.actions.length > 0) actionPlansCreated++;
+      for (const act of c.actions) {
+        if (act.status === 'COMPLETED') tasksCompleted++;
+      }
+      for (const cl of c.claims) {
+        totalClaimsChecked++;
+        if (cl.status === 'VERIFIED') verificationBreakdown.verified++;
+        else if (cl.status === 'PARTIALLY_SUPPORTED') verificationBreakdown.partiallySupported++;
+        else if (cl.status === 'UNVERIFIED') verificationBreakdown.unverified++;
+        else if (cl.status === 'CONFLICTING') verificationBreakdown.conflicting++;
+        else if (cl.status === 'UNABLE_TO_VERIFY') verificationBreakdown.unableToVerify++;
+      }
+      categoryBreakdown[c.category] = (categoryBreakdown[c.category] || 0) + 1;
+    }
+
+    const openCases = this.cases.filter((c) => c.overallStatus !== 'RESOLVED' && c.overallStatus !== 'ARCHIVED').length;
+    const resolvedCases = this.cases.filter((c) => c.overallStatus === 'RESOLVED').length;
+
+    return {
+      totalCases,
+      successfullyProcessed,
+      awaitingVerification,
+      actionPlansCreated,
+      tasksCompleted,
+      openCases,
+      resolvedCases,
+      averageProcessingTimeSeconds: 4.8,
+      verificationBreakdown,
+      categoryBreakdown,
+    };
+  }
+
+  public resetDemoData(): void {
+    this.cases = JSON.parse(JSON.stringify(INITIAL_CASES));
+    this.resources = JSON.parse(JSON.stringify(INITIAL_RESOURCES));
+    this.saveCases();
+    this.saveResources();
+  }
+}
+
+export const storage = new StorageService();

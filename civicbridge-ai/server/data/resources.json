@@ -1,0 +1,126 @@
+[
+  {
+    "id": "res-stormwater-01",
+    "name": "Municipal Public Works — Stormwater & Flood Control",
+    "category": "INFRASTRUCTURE_HAZARD",
+    "description": "Responsible for road clearance, storm drain clearing, culvert maintenance, and emergency road closures.",
+    "jurisdiction": "Metro District 4 & Public Roadways",
+    "contact": {
+      "phone": "(555) 019-2834",
+      "email": "stormwater.dispatch@metrocivic.gov",
+      "portalUrl": "https://metrocivic.gov/publicworks/report-flood",
+      "hours": "24/7 Emergency Dispatch"
+    },
+    "servicesProvided": [
+      "Pump deployment",
+      "Temporary detour barriers",
+      "Drain unblocking",
+      "Hydrological inspections"
+    ],
+    "lastVerifiedDate": "2026-10-15",
+    "isOfficialSource": true,
+    "isEmergencyOnly": false
+  },
+  {
+    "id": "res-school-transit-02",
+    "name": "Unified School District — Transportation Safety Office",
+    "category": "CIVIC_SERVICES",
+    "description": "Manages school bus route diversions, student drop-off safety perimeters, and crossing guard alerts.",
+    "jurisdiction": "Oakridge & Lincoln Public School Clusters",
+    "contact": {
+      "phone": "(555) 019-8821",
+      "email": "safety-dispatch@oakridgeschools.org",
+      "portalUrl": "https://oakridgeschools.org/transport-alerts",
+      "hours": "Mon-Fri 06:00 - 18:00"
+    },
+    "servicesProvided": [
+      "Bus rerouting",
+      "Crossing guard reassignment",
+      "Parent SMS alerts",
+      "Safe pedestrian corridors"
+    ],
+    "lastVerifiedDate": "2026-10-20",
+    "isOfficialSource": true,
+    "isEmergencyOnly": false
+  },
+  {
+    "id": "res-noaa-hydrology-03",
+    "name": "National Weather Service — Local Hydrology Bureau",
+    "category": "COMMUNITY_EMERGENCY",
+    "description": "Official stream gauges, rainfall rate radar, flash flood watches, and watershed alert levels.",
+    "jurisdiction": "Regional River Basin Station #4029",
+    "contact": {
+      "phone": "(555) 012-4411",
+      "portalUrl": "https://water.weather.gov/gauges/station4029",
+      "hours": "Continuous Automated Monitoring"
+    },
+    "servicesProvided": [
+      "Crest telemetry",
+      "Flash flood warning bulletin",
+      "Precipitation history"
+    ],
+    "lastVerifiedDate": "2026-10-23",
+    "isOfficialSource": true,
+    "isEmergencyOnly": false
+  },
+  {
+    "id": "res-epa-spill-04",
+    "name": "State Environmental Protection Agency — Spill & Hazard Line",
+    "category": "ENVIRONMENTAL",
+    "description": "Enforces hazardous waste cleanup, industrial runoff containment, and illegal waterway dumping investigations.",
+    "jurisdiction": "Statewide Watershed Protection Division",
+    "contact": {
+      "phone": "1-800-555-0199",
+      "email": "spillresponse@state.deq.gov",
+      "portalUrl": "https://deq.state.gov/hotline",
+      "hours": "24/7 Incident Reporting"
+    },
+    "servicesProvided": [
+      "Hazardous materials testing",
+      "Pollution containment",
+      "Citations and stop-work orders"
+    ],
+    "lastVerifiedDate": "2026-10-18",
+    "isOfficialSource": true,
+    "isEmergencyOnly": false
+  },
+  {
+    "id": "res-senior-advocacy-05",
+    "name": "Department of Aging & Adult Protective Services",
+    "category": "PUBLIC_HEALTH_SAFETY",
+    "description": "Emergency wellness checks, residential facility climate compliance, and vulnerable resident cooling center transport.",
+    "jurisdiction": "County Health & Human Services",
+    "contact": {
+      "phone": "(555) 018-7722",
+      "email": "eldercare.advocacy@countyhealth.gov",
+      "hours": "Mon-Sun 07:00 - 22:00"
+    },
+    "servicesProvided": [
+      "Wellness checks",
+      "Generator deployment verification",
+      "Temporary relocation"
+    ],
+    "lastVerifiedDate": "2026-10-21",
+    "isOfficialSource": true,
+    "isEmergencyOnly": false
+  },
+  {
+    "id": "res-emergency-911",
+    "name": "Emergency Dispatch (Life Safety / Fire / Rescue)",
+    "category": "EMERGENCY_DISPATCH",
+    "description": "For active life threats, trapped vehicles in swift water, active fires, or acute medical crises. Do not wait for AI analysis.",
+    "jurisdiction": "All Jurisdictions",
+    "contact": {
+      "phone": "911",
+      "hours": "24/7"
+    },
+    "servicesProvided": [
+      "Swift water rescue",
+      "Fire/Paramedic dispatch",
+      "Evacuation execution"
+    ],
+    "lastVerifiedDate": "2026-10-23",
+    "isOfficialSource": true,
+    "isEmergencyOnly": true
+  }
+]
